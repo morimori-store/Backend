@@ -26,7 +26,6 @@ on:
       - "settings.gradle.kts"
       - "Dockerfile"
     branches:
-      - main
       - develop
   workflow_dispatch:
 
