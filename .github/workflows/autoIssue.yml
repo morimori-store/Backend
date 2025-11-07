@@ -51,6 +51,6 @@ jobs:
         uses: jinhokim98/project-flow-add-issue-to-project@v1
         with:
           github_token: ${{ secrets.PROJECT_ACCESS_TOKEN }}
-          project_owner: prgrms-web-devcourse-final-project
-          project_number: 154
+          project_owner: morimori-store
+          project_number: 3
           target_column: 'Backlog'
