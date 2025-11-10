@@ -93,4 +93,11 @@ public interface ProductRepository extends JpaRepository<Product, Long>, Product
             "AND p.displayStatus = com.back.domain.product.product.entity.DisplayStatus.DISPLAYING " +
             "ORDER BY p.sellingStartDate ASC")
     List<Product> findUpcomingProducts(@Param("today") LocalDateTime today);
+
+    @Query("SELECT DISTINCT p FROM Product p " +
+            "LEFT JOIN FETCH p.productTags pt " +
+            "LEFT JOIN FETCH pt.tag " +
+            "WHERE p.productUuid = :uuid")
+    Optional<Product> findByProductUuidWithTags(@Param("uuid") UUID productUuid);
+
 }
