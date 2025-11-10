@@ -5,7 +5,7 @@ variable "region" {
 
 variable "prefix" {
   description = "Prefix for all resources"
-  default     = "team07-morimori"
+  default     = "morimori"
 }
 
 variable "morimori_domain" {
@@ -13,20 +13,14 @@ variable "morimori_domain" {
   default     = "api.mori-mori.store"
 }
 
-variable "team" {
-  description = "tag team name"
-  type        = string
-  default     = "devcos-team07"
-}
-
 variable "github_repo_owner" {
-  description = "The owner of the GitHub repository (user or organization)."
+  description = "깃허브 조직"
   type        = string
-  default     = "prgrms-web-devcourse-final-project"
+  default     = "morimori-store"
 }
 
 variable "github_repo_name" {
-  description = "The name of the GitHub repository."
+  description = "레포지터리"
   type        = string
-  default     = "WEB6_8_LuckyVicky_BE"
+  default     = "Backend"
 }
