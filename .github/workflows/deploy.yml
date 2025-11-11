@@ -192,8 +192,8 @@ jobs: # 실제 작업 시작
 
             # 대상 프록시 호스트 ID 조회(도메인 매칭)
             PROXY_ID=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts" \
-              -H "Authorization: Bearer ${TOKEN}" \ 
-              | jq ".[] | select(.domain_names[]==\"${APP_DOMAIN}\") | .id") 
+              -H "Authorization: Bearer ${TOKEN}" \
+              | jq ".[] | select(.domain_names[]==\"${APP_DOMAIN}\") | .id")
 
             [[ -n "${PROXY_ID}" && "${PROXY_ID}" != "null" ]] || { echo "Proxy host not found for ${APP_DOMAIN}"; exit 1; }
 
@@ -203,7 +203,7 @@ jobs: # 실제 작업 시작
               | jq -r '.forward_host')
             
             # 찾아낸 현재 운영 중인 컨테이너 이름을 로그로 출력
-            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}" 
+            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}"
             
             # ---------------------------------------------------------
             # 3) 역할(blue/green) 판정
