@@ -182,8 +182,11 @@ jobs: # 실제 작업 시작
             # ---------------------------------------------------------
             # 2) Nginx Proxy Manager(NPM) API 토큰 발급
             # ---------------------------------------------------------
-            TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens -H "Content-Type: application/json" -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD:-}\"}" | jq -r '.token')
-
+            RESPONSE=$(curl -s -X POST http://127.0.0.1:81/api/tokens \
+              -H "Content-Type: application/json" \
+              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD:-}\"}")
+            TOKEN=$(echo "$RESPONSE" | jq -r '.token')
+            
             # 토큰/도메인 검증(없으면 실패)
             [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; }
             [[ -n "${APP_DOMAIN:-}" ]] || { echo "APP_DOMAIN is empty"; exit 1; }
