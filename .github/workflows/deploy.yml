@@ -1,67 +1,62 @@
 name: deploy
 
-# =========================
 # 전역 환경변수
-# =========================
 env:
-  IMAGE_REPOSITORY: mori-mori # GHCR 이미지 리포지토리명(소유자 포함 X)
-  CONTAINER_1_NAME: mori-mori_1 # 슬롯1(고정 이름)
-  CONTAINER_2_NAME: mori-mori_2 # 슬롯2(고정 이름)
-  CONTAINER_PORT: 8080 # 컨테이너 내부 포트(스프링부트)
-  EC2_INSTANCE_TAG_NAME: team07-morimori-ec2 # 배포 대상 EC2 Name 태그
-  DOCKER_NETWORK: common # 도커 네트워크
+  IMAGE_REPOSITORY: mori-mori # GHCR에 저장할 이미지 리포지토리명(소유자 포함 X)
+  CONTAINER_1_NAME: mori-mori_1 # 컨테이너 슬롯1
+  CONTAINER_2_NAME: mori-mori_2 # 컨테이너 슬롯2
+  CONTAINER_PORT: 8080 # 스프링부트 애플리케이션이 컨테이너 내부에서 사용하는 포트
+  EC2_INSTANCE_TAG_NAME: morimori-ec2 # 배포할 EC2 인스턴스의 Name 태그
+  DOCKER_NETWORK: common # 서비스들이 통신할 도커 네트워크 이름
   BACKEND_DIR: . # Dockerfile 위치
 
 # 동시성 처리 끔
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }} # 커밋이 짧은 시간안에 몰려도 최신 커밋에 대해서만 액션이 수행되도록
+  group: ${{ github.workflow }}-${{ github.ref }} # 짧은 시간안에 커밋이 몰리면 마지막 커밋에 대해서만 액션이 수행되도록
   cancel-in-progress: false # 기존에 시작된 작업은 새 커밋이 들어왔다고 해서 바로 끄지 않고 끝날때까지 대기
 
 on:
-  push:
-    paths:
+  push: # push 이벤트가 발생했을 때 실행
+    paths: # 아래 경로에서 변경이 있을 때만 실행
       - ".github/workflows/**"
       - "src/**"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "Dockerfile"
-    branches:
-      - main
+    branches: # develop 브랜치에 push될 때만 실행
       - develop
-  workflow_dispatch:
+  workflow_dispatch: # 깃허브 Actions에서 수동으로 워크플로우 실행 가능
 
-# 권한 최소화/명시화
+# 이 워크플로우가 가지는 권한 설정
 permissions:
-  contents: write # 태그/릴리즈
-  packages: write # GHCR 푸시
+  contents: write # 태그/릴리즈 생성에 필요한 쓰기 권한
+  packages: write # GHCR에 도커 이미지 푸시할 때 필요한 쓰기 권한
 
 # 기본 셸
 defaults:
   run:
     shell: bash
 
-jobs:
-  # ---------------------------------------------------------
-  # 1) 태그/릴리즈 생성
-  # ---------------------------------------------------------
+jobs: # 실제 작업 시작
+  # 1) 태그/릴리즈 자동 생성
   makeTagAndRelease:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # ubuntu 가상 환경에서 실행됨
     outputs:
       tag_name: ${{ steps.create_tag.outputs.new_tag }} # 이후 잡에서 사용할 태그명
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # 코드를 runner로 가져옴
 
       # 버전 태그 자동 생성 (vX.Y.Z)
       - name: Create Tag
         id: create_tag
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v6.2 # 자동으로 버전을 올려서 태그를 생성하는 액션
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       # 릴리즈 생성
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@v1 # 위에서 만든 태그를 기반으로 릴리즈 생성하는 액션
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -71,9 +66,7 @@ jobs:
           draft: false
           prerelease: false
 
-  # ---------------------------------------------------------
-  # 2) 도커 이미지 빌드/푸시 (캐시 최대 활용)
-  # ---------------------------------------------------------
+  # 2) 도커 이미지 빌드 및 푸시
   buildImageAndPush:
     name: 도커 이미지 빌드와 푸시
     needs: makeTagAndRelease
@@ -97,11 +90,11 @@ jobs:
           echo "${{ secrets.GA4_JSON }}" | base64 -d > src/main/resources/ga4-service-account.json
 
       - name: Docker Buildx 설치
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v3 # 도커 이미지를 더 효율적으로 빌드할 수 있는 Buildx를 설정
 
-      # GHCR 로그인
+      # GHCR에 로그인
       - name: 레지스트리 로그인
-        uses: docker/login-action@v3
+        uses: docker/login-action@v3 # GHCR 로그인
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -114,28 +107,26 @@ jobs:
         env:
           OWNER: "${{ github.repository_owner }}"
 
-      # 캐시를 최대한 활용하여 빌드 → 버전태그 및 latest 동시 푸시
+      # 캐시를 최대한 활용하여 빌드 → 버전 태그 및 latest 동시 푸시
       - name: 빌드 앤 푸시
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v6 # 이미지를 빌드하고 푸시하는 단계
         with:
           context: ${{ env.BACKEND_DIR }}
           push: true
           cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
+          cache-to: type=gha,mode=max # 빌드 캐시를 사용하여 다음 빌드 시간을 단축
+          tags: | # 이미지에 버전 태그와 latest 태그 2개를 붙여서 푸시
             ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_REPOSITORY }}:${{ needs.makeTagAndRelease.outputs.tag_name }}
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_REPOSITORY }}:latest
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.IMAGE_REPOSITORY }}:latest 
 
-  # ---------------------------------------------------------
   # 3) Blue/Green 무중단 배포 (EC2 + NPM 스위치)
-  # ---------------------------------------------------------
   deploy:
     name: Blue/Green 무중단 배포
     runs-on: ubuntu-latest
     needs: [makeTagAndRelease, buildImageAndPush]
     steps:
       # AWS 자격 구성
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v4 # SSH 대신 SSM을 사용하여 EC2 인스턴스에 원격으로 아래의 command 스크립트를 실행함
         with:
           aws-region: ${{ secrets.AWS_REGION }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -165,7 +156,7 @@ jobs:
             set -Eeuo pipefail
 
             # ---------------------------------------------------------
-            # 0) 실행 로그(라인 타임스탬프 부착)
+            # 0) 실행 로그 (스크립트의 실행 결과를 타임스탬프와 함께 /tmp 폴더에 로그 파일로 저장하고 화면에 출력)
             # ---------------------------------------------------------
             LOG="/tmp/ssm-$(date +%Y%m%d_%H%M%S).log"
             exec > >(awk '{ fflush(); print strftime("[%Y-%m-%d %H:%M:%S]"), $0 }' | tee -a "$LOG")
@@ -173,53 +164,50 @@ jobs:
             
             # ---------------------------------------------------------
             # 1) 변수 정의
-            #    - 슬롯 이름은 고정(두 개의 컨테이너 이름)
-            #    - blue/green은 "역할"이며 매 배포마다 바뀜
             # ---------------------------------------------------------
-            source /etc/environment || true   # 시스템 전역 변수(+ 비밀) 주입 시도
+            source /etc/environment || true   # EC2 인스턴스의 /ect/environment 파일에 저장된 환경변수를 불러옴
             OWNER_LC="${{ github.repository_owner }}"
-            OWNER_LC="${OWNER_LC,,}"                                # 소문자 표준화
+            OWNER_LC="${OWNER_LC,,}" 
             IMAGE_TAG="${{ needs.makeTagAndRelease.outputs.tag_name }}"
             IMAGE_REPOSITORY="${{ env.IMAGE_REPOSITORY }}"
-            IMAGE="ghcr.io/${OWNER_LC}/${IMAGE_REPOSITORY}:${IMAGE_TAG}"
+            IMAGE="ghcr.io/${OWNER_LC}/${IMAGE_REPOSITORY}:${IMAGE_TAG}" # 도커 이미지의 전체 경로 생성. 
             SLOT1="${{ env.CONTAINER_1_NAME }}"
             SLOT2="${{ env.CONTAINER_2_NAME }}"
             PORT_IN="${{ env.CONTAINER_PORT }}"
             NET="${{ env.DOCKER_NETWORK }}"
 
-            echo "🔹 Use image: ${IMAGE}"
-            docker pull "${IMAGE}"
+            echo "🔹 Use image: ${IMAGE}" # 이번 배포에서 사용할 이미지의 버전을 로그로 출력
+            docker pull "${IMAGE}" # 이미지 경로를 사용해서 GHCR에서 최신 버전의 애플리케이션 이미지를 EC2 인스턴스로 pull 받음
 
             # ---------------------------------------------------------
             # 2) Nginx Proxy Manager(NPM) API 토큰 발급
-            #     - /etc/environment 등에 설정된 PASSWORD_1, APP_1_DOMAIN 사용 가정
             # ---------------------------------------------------------
-            TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens \
+            TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens \ # curl 명령어로 EC2 인스턴스 내 실행 중인 NPM API에 POST 요청을 보냄 
               -H "Content-Type: application/json" \
-              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD_1:-}\"}" | jq -r '.token')
+              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD:-}\"}" | jq -r '.token') # 응답에서 인증 token 값만 추출하여 TOKEN 변수에 저장
 
             # 토큰/도메인 검증(없으면 실패)
-            [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; }
-            [[ -n "${APP_1_DOMAIN:-}" ]] || { echo "APP_1_DOMAIN is empty"; exit 1; }
+            [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; } # TOKEN 변수 검증
+            [[ -n "${APP_DOMAIN:-}" ]] || { echo "APP_DOMAIN is empty"; exit 1; } # APP_DOMAIN 변수 검증
 
             # 대상 프록시 호스트 ID 조회(도메인 매칭)
             PROXY_ID=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts" \
-              -H "Authorization: Bearer ${TOKEN}" \
-              | jq ".[] | select(.domain_names[]==\"${APP_1_DOMAIN}\") | .id")
+              -H "Authorization: Bearer ${TOKEN}" \ # 발급받은 TOKEN으로 NPM API에 인증하여 모든 프록시 호스트 목록을 가져옴 
+              | jq ".[] | select(.domain_names[]==\"${APP_DOMAIN}\") | .id") # 가져온 목록에서 현재 서비스 도메인과 일치하는 호스트를 찾고, 그 호스트의 고유 ID를 추출하여 PROXY_ID 변수에 저장
 
-            [[ -n "${PROXY_ID}" && "${PROXY_ID}" != "null" ]] || { echo "Proxy host not found for ${APP_1_DOMAIN}"; exit 1; }
+            [[ -n "${PROXY_ID}" && "${PROXY_ID}" != "null" ]] || { echo "Proxy host not found for ${APP_DOMAIN}"; exit 1; } # PROXY_ID 검증
 
             # 현재 프록시가 바라보는 업스트림(컨테이너명) 조회
             CURRENT_HOST=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \
-              -H "Authorization: Bearer ${TOKEN}" \
-              | jq -r '.forward_host')
+              -H "Authorization: Bearer ${TOKEN}" \ # PROXY_ID를 이용해 해당 프록시 호스트의 상세 정보 조회
+              | jq -r '.forward_host') # 상세 정보에서 forward_host(현재 트래픽을 받고있는 컨테이너 이름)를 추출해서 CURRENT_HOST 변수에 저장  
 
-            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}"
-
+            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}" # 찾아낸 현재 운영 중인 컨테이너 이름을 로그로 출력
+            
             # ---------------------------------------------------------
             # 3) 역할(blue/green) 판정
-            #    - blue : 현재 운영 중(CURRENT_HOST)
-            #    - green: 다음 운영(교체 대상)
+            #    - blue : 현재 운영 중인 컨테이너
+            #    - green: 새로 배포할 컨테이너
             # ---------------------------------------------------------
             if [[ "${CURRENT_HOST:-}" == "${SLOT1}" ]]; then
               BLUE="${SLOT1}"
@@ -231,30 +219,29 @@ jobs:
               BLUE="none"   # 초기 배포
               GREEN="${SLOT1}"
             fi
-            echo "🎨 role -> blue(now): ${BLUE}, green(next): ${GREEN}"
+            echo "🎨 role -> blue(now): ${BLUE}, green(next): ${GREEN}" # 결정된 역할을 로그로 출력
 
             # ---------------------------------------------------------
             # 4) green 역할 컨테이너 재기동
-            #    - 같은 네트워크 상에서 NPM이 컨테이너명:PORT로 프록시하므로 -p 불필요
             # ---------------------------------------------------------
-            docker rm -f "${GREEN}" >/dev/null 2>&1 || true
+            docker rm -f "${GREEN}" >/dev/null 2>&1 || true # 이전 GREEN 컨테이너를 강제로 삭제 
             echo "🚀 run new container → ${GREEN}"
-            docker run -d --name "${GREEN}" \
+            docker run -d --name "${GREEN}" \ # GREEN의 이름으로 아까 내려받은 최신 이미지를 사용해서 새 컨테이너를 백그라운드에서 실행시킴
               --restart unless-stopped \
               --network "${NET}" \
               -e TZ=Asia/Seoul \
               "${IMAGE}"
             
             # ---------------------------------------------------------
-            # 5) 헬스체크 (/actuator/health 200 OK까지 대기))
+            # 5) 헬스체크
             # ---------------------------------------------------------
             echo "⏱ health-check: ${GREEN}"
-            TIMEOUT=120 
+            TIMEOUT=120 # 120초 안에 정상 상태가 되지 않으면 실패로 간주하여 새로 띄운 컨테이너 삭제하고 스크립트 중단 
             INTERVAL=3
             ELAPSED=0
             sleep 8  # 초기 부팅 여유
 
-            while (( ELAPSED < TIMEOUT )); do
+            while (( ELAPSED < TIMEOUT )); do # 3초에 한 번씩 컨테이너 내부의 /actuator/health 경로를 호출하여 HTTP 상태 코드가 200인지 확인
               CODE=$(docker exec "${GREEN}" curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT_IN}/actuator/health" || echo 000)
               [[ "${CODE}" == "200" ]] && { echo "✅ ${GREEN} healthy"; break; }
               sleep "${INTERVAL}"
@@ -263,27 +250,26 @@ jobs:
             [[ "${CODE:-000}" == "200" ]] || { echo "❌ ${GREEN} health failed"; docker logs --tail=200 "${GREEN}" || true; docker rm -f "${GREEN}" || true; exit 1; }
 
             # ---------------------------------------------------------
-            # 6) 업스트림 전환 (forward_host/forward_port만 업데이트)
+            # 6) 업스트림 전환
             # ---------------------------------------------------------
-            NEW_CFG=$(jq -n --arg host "${GREEN}" --argjson port ${PORT_IN} '{forward_host:$host, forward_port:$port}')
-            curl -s -X PUT "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \
+            NEW_CFG=$(jq -n --arg host "${GREEN}" --argjson port ${PORT_IN} '{forward_host:$host, forward_port:$port}') # jq를 이용해 NPM API에 보낼 설정값 생성 (설정값은 "이제부터 트래픽을 GREEN 컨테이너의 8080 포트로 보내라"임)
+            curl -s -X PUT "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \ # curl 명령으로 NPM API에 PUT 요청을 보내서 프록시 설정을 업데이트함
               -H "Authorization: Bearer ${TOKEN}" \
               -H "Content-Type: application/json" \
               -d "${NEW_CFG}" >/dev/null
             echo "🔁 switch upstream → ${GREEN}:${PORT_IN}"
 
             # ---------------------------------------------------------
-            # 7) 이전 blue 종료(최초 배포면 생략)
+            # 7) 이전 blue 종료 (최초 배포면 생략)
             # ---------------------------------------------------------
-            if [[ "${BLUE}" != "none" ]]; then
-              docker stop "${BLUE}" >/dev/null 2>&1 || true
-              docker rm "${BLUE}" >/dev/null 2>&1 || true
+            if [[ "${BLUE}" != "none" ]]; then 
+              docker stop "${BLUE}" >/dev/null 2>&1 || true # 트래픽 전환 완료 후 구 컨테이너 BLUE를 중지
+              docker rm "${BLUE}" >/dev/null 2>&1 || true # 컨테이너 BLUE 삭제
               echo "🧹 removed old blue: ${BLUE}"
             fi
 
             # ---------------------------------------------------------
-            # 8) 이미지 정리(현재 태그/ latest 제외) - 결과 없음도 오류 아님
-            #     - pipefail과 grep의 종료코드(1)를 고려해 블록 전체에 || true 적용
+            # 8) 이미지 정리
             # ---------------------------------------------------------
             {
               docker images --format '{{.Repository}}:{{.Tag}}' \
@@ -291,6 +277,6 @@ jobs:
                 | grep -v -F ":${IMAGE_TAG}" \
                 | grep -v -F ":latest" \
                 | xargs -r docker rmi
-            } || true
+            } || true # EC2 서버의 디스크 공간을 위해 오래된 버전의 Docker 이미지들 삭제 
 
-            echo "🏁 Blue/Green switch complete. now blue = ${GREEN}"
+            echo "🏁 Blue/Green switch complete. now blue = ${GREEN}" # 모든 과정이 성공적으로 완료됐음을 나타내는 메시지
