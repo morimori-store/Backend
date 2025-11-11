@@ -184,7 +184,7 @@ jobs: # 실제 작업 시작
             # ---------------------------------------------------------
             TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens \
               -H "Content-Type: application/json" \
-              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD_1:-}\"}" | jq -r '.token')
+              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD:-}\"}" | jq -r '.token')
             
             # 토큰/도메인 검증(없으면 실패)
             [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; }
