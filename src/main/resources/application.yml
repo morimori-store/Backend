@@ -135,14 +135,15 @@ logging:
 management:
   endpoints:
     web:
-      base-path: /actuator            # 기본값이지만 명시
+      base-path: /actuator
       exposure:
-        include: health,info          # 필요시 metrics 등 추가
-  endpoint:
-    health:
-      probes:
-        enabled: true                 # /actuator/health/{liveness,readiness} 활성화
-      show-details: never             # 프로브 용도면 never 권장(민감정보 차단)
+        include: health,info
+  health:
+    mail:
+      enabled: false
+    probes:
+      enabled: true
+    show-details: never
 
 # 도메인 설정
 custom:

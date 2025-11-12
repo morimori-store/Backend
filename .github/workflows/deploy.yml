@@ -176,33 +176,34 @@ jobs: # 실제 작업 시작
             PORT_IN="${{ env.CONTAINER_PORT }}"
             NET="${{ env.DOCKER_NETWORK }}"
 
-            echo "🔹 Use image: ${IMAGE}" # 이번 배포에서 사용할 이미지의 버전을 로그로 출력
-            docker pull "${IMAGE}" # 이미지 경로를 사용해서 GHCR에서 최신 버전의 애플리케이션 이미지를 EC2 인스턴스로 pull 받음
+            echo "🔹 Use image: ${IMAGE}"
+            docker pull "${IMAGE}"
 
             # ---------------------------------------------------------
             # 2) Nginx Proxy Manager(NPM) API 토큰 발급
             # ---------------------------------------------------------
-            TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens \ # curl 명령어로 EC2 인스턴스 내 실행 중인 NPM API에 POST 요청을 보냄 
+            TOKEN=$(curl -s -X POST http://127.0.0.1:81/api/tokens \
               -H "Content-Type: application/json" \
-              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD:-}\"}" | jq -r '.token') # 응답에서 인증 token 값만 추출하여 TOKEN 변수에 저장
-
+              -d "{\"identity\": \"admin@npm.com\", \"secret\": \"${PASSWORD:-}\"}" | jq -r '.token')
+            
             # 토큰/도메인 검증(없으면 실패)
-            [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; } # TOKEN 변수 검증
-            [[ -n "${APP_DOMAIN:-}" ]] || { echo "APP_DOMAIN is empty"; exit 1; } # APP_DOMAIN 변수 검증
+            [[ -n "${TOKEN}" && "${TOKEN}" != "null" ]] || { echo "NPM token issue failed"; exit 1; }
+            [[ -n "${APP_DOMAIN:-}" ]] || { echo "APP_DOMAIN is empty"; exit 1; }
 
             # 대상 프록시 호스트 ID 조회(도메인 매칭)
             PROXY_ID=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts" \
-              -H "Authorization: Bearer ${TOKEN}" \ # 발급받은 TOKEN으로 NPM API에 인증하여 모든 프록시 호스트 목록을 가져옴 
-              | jq ".[] | select(.domain_names[]==\"${APP_DOMAIN}\") | .id") # 가져온 목록에서 현재 서비스 도메인과 일치하는 호스트를 찾고, 그 호스트의 고유 ID를 추출하여 PROXY_ID 변수에 저장
+              -H "Authorization: Bearer ${TOKEN}" \
+              | jq ".[] | select(.domain_names[]==\"${APP_DOMAIN}\") | .id")
 
-            [[ -n "${PROXY_ID}" && "${PROXY_ID}" != "null" ]] || { echo "Proxy host not found for ${APP_DOMAIN}"; exit 1; } # PROXY_ID 검증
+            [[ -n "${PROXY_ID}" && "${PROXY_ID}" != "null" ]] || { echo "Proxy host not found for ${APP_DOMAIN}"; exit 1; }
 
             # 현재 프록시가 바라보는 업스트림(컨테이너명) 조회
             CURRENT_HOST=$(curl -s -X GET "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \
-              -H "Authorization: Bearer ${TOKEN}" \ # PROXY_ID를 이용해 해당 프록시 호스트의 상세 정보 조회
-              | jq -r '.forward_host') # 상세 정보에서 forward_host(현재 트래픽을 받고있는 컨테이너 이름)를 추출해서 CURRENT_HOST 변수에 저장  
-
-            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}" # 찾아낸 현재 운영 중인 컨테이너 이름을 로그로 출력
+              -H "Authorization: Bearer ${TOKEN}" \
+              | jq -r '.forward_host')
+            
+            # 찾아낸 현재 운영 중인 컨테이너 이름을 로그로 출력
+            echo "🔎 CURRENT_HOST: ${CURRENT_HOST:-none}"
             
             # ---------------------------------------------------------
             # 3) 역할(blue/green) 판정
@@ -219,14 +220,14 @@ jobs: # 실제 작업 시작
               BLUE="none"   # 초기 배포
               GREEN="${SLOT1}"
             fi
-            echo "🎨 role -> blue(now): ${BLUE}, green(next): ${GREEN}" # 결정된 역할을 로그로 출력
+            echo "🎨 role -> blue(now): ${BLUE}, green(next): ${GREEN}"
 
             # ---------------------------------------------------------
             # 4) green 역할 컨테이너 재기동
             # ---------------------------------------------------------
-            docker rm -f "${GREEN}" >/dev/null 2>&1 || true # 이전 GREEN 컨테이너를 강제로 삭제 
+            docker rm -f "${GREEN}" >/dev/null 2>&1 || true
             echo "🚀 run new container → ${GREEN}"
-            docker run -d --name "${GREEN}" \ # GREEN의 이름으로 아까 내려받은 최신 이미지를 사용해서 새 컨테이너를 백그라운드에서 실행시킴
+            docker run -d --name "${GREEN}" \
               --restart unless-stopped \
               --network "${NET}" \
               -e TZ=Asia/Seoul \
@@ -236,12 +237,12 @@ jobs: # 실제 작업 시작
             # 5) 헬스체크
             # ---------------------------------------------------------
             echo "⏱ health-check: ${GREEN}"
-            TIMEOUT=120 # 120초 안에 정상 상태가 되지 않으면 실패로 간주하여 새로 띄운 컨테이너 삭제하고 스크립트 중단 
+            TIMEOUT=120
             INTERVAL=3
             ELAPSED=0
             sleep 8  # 초기 부팅 여유
 
-            while (( ELAPSED < TIMEOUT )); do # 3초에 한 번씩 컨테이너 내부의 /actuator/health 경로를 호출하여 HTTP 상태 코드가 200인지 확인
+            while (( ELAPSED < TIMEOUT )); do
               CODE=$(docker exec "${GREEN}" curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:${PORT_IN}/actuator/health" || echo 000)
               [[ "${CODE}" == "200" ]] && { echo "✅ ${GREEN} healthy"; break; }
               sleep "${INTERVAL}"
@@ -252,8 +253,8 @@ jobs: # 실제 작업 시작
             # ---------------------------------------------------------
             # 6) 업스트림 전환
             # ---------------------------------------------------------
-            NEW_CFG=$(jq -n --arg host "${GREEN}" --argjson port ${PORT_IN} '{forward_host:$host, forward_port:$port}') # jq를 이용해 NPM API에 보낼 설정값 생성 (설정값은 "이제부터 트래픽을 GREEN 컨테이너의 8080 포트로 보내라"임)
-            curl -s -X PUT "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \ # curl 명령으로 NPM API에 PUT 요청을 보내서 프록시 설정을 업데이트함
+            NEW_CFG=$(jq -n --arg host "${GREEN}" --argjson port ${PORT_IN} '{forward_host:$host, forward_port:$port}')
+            curl -s -X PUT "http://127.0.0.1:81/api/nginx/proxy-hosts/${PROXY_ID}" \
               -H "Authorization: Bearer ${TOKEN}" \
               -H "Content-Type: application/json" \
               -d "${NEW_CFG}" >/dev/null
@@ -263,8 +264,8 @@ jobs: # 실제 작업 시작
             # 7) 이전 blue 종료 (최초 배포면 생략)
             # ---------------------------------------------------------
             if [[ "${BLUE}" != "none" ]]; then 
-              docker stop "${BLUE}" >/dev/null 2>&1 || true # 트래픽 전환 완료 후 구 컨테이너 BLUE를 중지
-              docker rm "${BLUE}" >/dev/null 2>&1 || true # 컨테이너 BLUE 삭제
+              docker stop "${BLUE}" >/dev/null 2>&1 || true
+              docker rm "${BLUE}" >/dev/null 2>&1 || true
               echo "🧹 removed old blue: ${BLUE}"
             fi
 
@@ -277,6 +278,6 @@ jobs: # 실제 작업 시작
                 | grep -v -F ":${IMAGE_TAG}" \
                 | grep -v -F ":latest" \
                 | xargs -r docker rmi
-            } || true # EC2 서버의 디스크 공간을 위해 오래된 버전의 Docker 이미지들 삭제 
-
-            echo "🏁 Blue/Green switch complete. now blue = ${GREEN}" # 모든 과정이 성공적으로 완료됐음을 나타내는 메시지
+            } || true
+            
+            echo "🏁 Blue/Green switch complete. now blue = ${GREEN}"
