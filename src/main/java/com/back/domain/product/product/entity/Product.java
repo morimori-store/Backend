@@ -28,8 +28,14 @@ public class Product extends BaseEntity {
     private User user; // 작가 FK
 
     @Column(unique = true, nullable = false, updatable = false)
-    @Builder.Default
-    private UUID productUuid = UUID.randomUUID(); // 상품 식별 번호 (uuid)
+    private UUID productUuid; // 상품 식별 번호 (uuid)
+
+    @PrePersist
+    private void generateUuid() {
+        if (productUuid == null) {
+            productUuid = UUID.randomUUID();
+        }
+    }
 
     @Column(nullable = false)
     private String name; // 상품명
