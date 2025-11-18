@@ -19,11 +19,11 @@ import java.util.*;
 @Table(name = "products")
 public class Product extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category; // 카테고리 FK
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user; // 작가 FK
 

@@ -17,11 +17,11 @@ import java.util.List;
 @Entity
 @Table(name = "product_qna")
 public class ProductQna extends BaseEntity {
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product; // 상품 FK
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user; // Q&A 작성자 FK
 

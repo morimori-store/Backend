@@ -14,7 +14,7 @@ import lombok.*;
 @Table(name = "product_images")
 public class ProductImage extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product; // 상품 FK
 

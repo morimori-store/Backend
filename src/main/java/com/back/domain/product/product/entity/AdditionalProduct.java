@@ -13,7 +13,7 @@ import lombok.*;
 @Table(name = "additional_products")
 public class AdditionalProduct extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product; // 상품 FK
 

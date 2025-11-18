@@ -14,7 +14,7 @@ import lombok.*;
 @Table(name = "product_qna_image")
 public class ProductQnaImage extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional=false)
     @JoinColumn(name = "product_qna_id", nullable = false)
     private ProductQna productQna;
 
