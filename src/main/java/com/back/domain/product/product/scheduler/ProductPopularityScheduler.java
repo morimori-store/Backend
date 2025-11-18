@@ -21,8 +21,8 @@ public class ProductPopularityScheduler {
     private final OrderItemRepository orderItemRepository;
     private final WishlistRepository wishlistRepository;
 
-    // 매일 한국 시간 기준 오전 10시 30분에 실행 (이후 실제 서비스 운영한다면 매일 00:20시에 실행되도록 수정)
-    @Scheduled(cron = "0 30 10 * * *", zone = "Asia/Seoul")
+    // 매일 한국 시간 기준 00:30시에 실행
+    @Scheduled(cron = "0 30 00 * * *", zone = "Asia/Seoul")
     @Transactional
     public void updatePopularityScores() {
         log.info("상품 인기 점수 계산 스케줄러 시작");
