@@ -2,6 +2,7 @@ package com.back.global.s3;
 
 import com.back.global.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
@@ -12,18 +13,10 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -151,61 +144,22 @@ public class S3Service {
     }
 
     /**
-     * 썸네일 이미지 리사이징 담당 (원본 비율 유지, 최대 너비/높이 제한)
+     * 썸네일 이미지 리사이징 담당 (Thumbnailator 라이브러리 사용)
      */
     private byte[] resizeImageSafe(byte[] originalImageBytes, int maxSize, String extension) {
         try (ByteArrayInputStream bis = new ByteArrayInputStream(originalImageBytes);
              ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
 
-            BufferedImage originalImage = ImageIO.read(bis);
-            if (originalImage == null) {
-                throw new IOException("지원하지 않는 이미지 형식이거나 파일이 손상되었습니다.");
-            }
-
-            int originalWidth = originalImage.getWidth();
-            int originalHeight = originalImage.getHeight();
-
-            if (originalWidth <= maxSize && originalHeight <= maxSize) {
-                return originalImageBytes;
-            }
-
-            double ratio = Math.min((double) maxSize / originalWidth, (double) maxSize / originalHeight);
-            int newWidth = (int) (originalWidth * ratio);
-            int newHeight = (int) (originalHeight * ratio);
-
-            int imageType = (originalImage.getType() == 0 || extension.equalsIgnoreCase("png"))
-                    ? BufferedImage.TYPE_INT_ARGB
-                    : originalImage.getType();
-            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, imageType);
-
-            Graphics2D g = resizedImage.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
-            g.dispose();
-
-            if (extension.equalsIgnoreCase("jpg") || extension.equalsIgnoreCase("jpeg")) {
-                Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
-                ImageWriter writer = writers.next();
-                ImageWriteParam param = writer.getDefaultWriteParam();
-                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-                param.setCompressionQuality(0.9f);
-
-                try (ImageOutputStream ios = ImageIO.createImageOutputStream(bos)) {
-                    writer.setOutput(ios);
-                    writer.write(null, new IIOImage(resizedImage, null, null), param);
-                } finally {
-                    writer.dispose();
-                }
-            } else {
-                ImageIO.write(resizedImage, extension, bos);
-            }
+            Thumbnails.of(bis)
+                    .size(maxSize, maxSize) // 최대 크기 300x300으로 제한 (비율 유지)
+                    .outputFormat(extension) // 파일 형식 유지
+                    .outputQuality(0.9) // JPEG 같은 확장자의 파일 품질을 90%로 설정
+                    .toOutputStream(bos);
 
             return bos.toByteArray();
 
         } catch (IOException e) {
-            log.error("썸네일 이미지 생성 실패", e);
+            log.error("썸네일 이미지 생성 실패 (Thumbnailator)", e);
             throw new ServiceException("500", "썸네일 이미지 생성에 실패했습니다.");
         }
     }
