@@ -107,7 +107,7 @@ public class S3Service {
 
             if (category == FileCategory.IMAGE && type == FileType.MAIN) {
                 // 원본 비율 유지하면서 최대 300px로 제한
-                byte[] thumbBytes = resizeImageSafe(file.getBytes(), 300, extension);
+                byte[] thumbBytes = resizeImageSafe(file.getBytes(), 400, extension);
 
                 // 썸네일 S3 Key 생성
                 String thumbKey = folder + "/thumbnail-" + UUID.randomUUID() + "." + extension;
@@ -151,9 +151,9 @@ public class S3Service {
              ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
 
             Thumbnails.of(bis)
-                    .size(maxSize, maxSize) // 최대 크기 300x300으로 제한 (비율 유지)
+                    .size(maxSize, maxSize) // 최대 크기 제한 (원본 비율 유지하면서)
                     .outputFormat(extension) // 파일 형식 유지
-                    .outputQuality(0.9) // JPEG 같은 확장자의 파일 품질을 90%로 설정
+                    .outputQuality(0.9)
                     .toOutputStream(bos);
 
             return bos.toByteArray();
