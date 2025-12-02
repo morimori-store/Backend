@@ -450,8 +450,8 @@ public class ProductService {
         product.setSize(request.size());
         product.setPlanned(request.isPlanned());
         product.setRestock(request.isRestock());
-        product.setSellingStartDate(request.sellingStartDate() != null ? request.sellingStartDate().atStartOfDay() : null);
-        product.setSellingEndDate(request.sellingEndDate() != null ? request.sellingEndDate().atStartOfDay() : null);
+        product.setSellingStartDate(request.sellingStartDate());
+        product.setSellingEndDate(request.sellingEndDate());
 
         // 재고가 0 -> 0보다 큰 값으로 변경되면 재입고 상품 여부(isRestock) 자동 true
         if (previousStock == 0 && product.getStock() > 0) {

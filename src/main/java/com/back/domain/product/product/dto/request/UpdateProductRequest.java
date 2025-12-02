@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -84,11 +85,11 @@ public record UpdateProductRequest(
         @NotNull(message = "재입고 여부는 필수입니다.")
         Boolean isRestock,
 
-        @Schema(description = "판매 시작일 (null 가능)", example = "2025-10-01")
-        LocalDate sellingStartDate,
+        @Schema(description = "판매 시작일 (null 가능)", example = "2025-10-01T10:00:00")
+        LocalDateTime sellingStartDate,
 
-        @Schema(description = "판매 종료일 (null 가능)", example = "2025-12-01")
-        LocalDate sellingEndDate,
+        @Schema(description = "판매 종료일 (null 가능)", example = "2025-12-01T10:00:00")
+        LocalDateTime sellingEndDate,
 
         @Schema(description = "태그 ID 목록", example = "[1,2,3]")
         @NotEmpty(message = "스타일 태그는 최소 1개 이상이어야 합니다.")
