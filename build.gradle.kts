@@ -76,12 +76,14 @@ dependencies {
 
     // 이메일 발송
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    // WebP 이미지 형식 지원
+    implementation("org.sejda.imageio:webp-imageio:0.1.6")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
     testLogging {
-        events("passed", "skipped", "failed")
+        events("passed", "skipped", "failed"ad
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         showStandardStreams = true
     }

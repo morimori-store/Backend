@@ -12,13 +12,18 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -108,8 +113,8 @@ public class S3Service {
             results.add(new UploadResultResponse(url, type, s3Key, originalFilename));
 
             if (category == FileCategory.IMAGE && type == FileType.MAIN) {
-                // 원본 비율 유지하면서 최대 111px로 제한
-                byte[] thumbBytes = resizeImageSafe(file.getBytes(), 111, extension);
+                // 원본 비율 유지하면서 최대 300px로 제한
+                byte[] thumbBytes = resizeImageSafe(file.getBytes(), 300, extension);
 
                 // 썸네일 S3 Key 생성
                 String thumbKey = folder + "/thumbnail-" + UUID.randomUUID() + "." + extension;
@@ -149,47 +154,59 @@ public class S3Service {
      * 썸네일 이미지 리사이징 담당 (원본 비율 유지, 최대 너비/높이 제한)
      */
     private byte[] resizeImageSafe(byte[] originalImageBytes, int maxSize, String extension) {
-        try {
-            BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(originalImageBytes));
-            if (originalImage == null) throw new IOException("이미지 형식 오류");
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(originalImageBytes);
+             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+
+            BufferedImage originalImage = ImageIO.read(bis);
+            if (originalImage == null) {
+                throw new IOException("지원하지 않는 이미지 형식이거나 파일이 손상되었습니다.");
+            }
 
             int originalWidth = originalImage.getWidth();
             int originalHeight = originalImage.getHeight();
 
-            // 원본이 이미 작으면 리사이징하지 않음
             if (originalWidth <= maxSize && originalHeight <= maxSize) {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                ImageIO.write(originalImage, extension, bos);
-                return bos.toByteArray();
+                return originalImageBytes;
             }
 
-            // 원본 비율 계산
-            double widthRatio = (double) maxSize / originalWidth;
-            double heightRatio = (double) maxSize / originalHeight;
-
-            // 더 작은 비율을 사용하여 원본 비율 유지하면서 최대 크기 안에 맞춤
-            double ratio = Math.min(widthRatio, heightRatio);
-
+            double ratio = Math.min((double) maxSize / originalWidth, (double) maxSize / originalHeight);
             int newWidth = (int) (originalWidth * ratio);
             int newHeight = (int) (originalHeight * ratio);
 
-            BufferedImage resized = new BufferedImage(newWidth, newHeight,
-                    originalImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : originalImage.getType());
+            int imageType = (originalImage.getType() == 0 || extension.equalsIgnoreCase("png"))
+                    ? BufferedImage.TYPE_INT_ARGB
+                    : originalImage.getType();
+            BufferedImage resizedImage = new BufferedImage(newWidth, newHeight, imageType);
 
-            Graphics2D g = resized.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            Graphics2D g = resizedImage.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
             g.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
             g.dispose();
 
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ImageIO.write(resized, extension, bos);
+            if (extension.equalsIgnoreCase("jpg") || extension.equalsIgnoreCase("jpeg")) {
+                Iterator<ImageWriter> writers = ImageIO.getImageWritersByFormatName("jpg");
+                ImageWriter writer = writers.next();
+                ImageWriteParam param = writer.getDefaultWriteParam();
+                param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+                param.setCompressionQuality(0.9f);
+
+                try (ImageOutputStream ios = ImageIO.createImageOutputStream(bos)) {
+                    writer.setOutput(ios);
+                    writer.write(null, new IIOImage(resizedImage, null, null), param);
+                } finally {
+                    writer.dispose();
+                }
+            } else {
+                ImageIO.write(resizedImage, extension, bos);
+            }
+
             return bos.toByteArray();
 
         } catch (IOException e) {
-            throw new ServiceException("500", "썸네일 이미지 생성 실패");
+            log.error("썸네일 이미지 생성 실패", e);
+            throw new ServiceException("500", "썸네일 이미지 생성에 실패했습니다.");
         }
     }
 
