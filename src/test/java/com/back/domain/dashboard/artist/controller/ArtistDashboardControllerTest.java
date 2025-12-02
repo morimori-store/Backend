@@ -19,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -88,7 +89,7 @@ class ArtistDashboardControllerTest {
 
     private ArtistProductResponse.Product createMockProduct() {
         return new ArtistProductResponse.Product(
-                101L,
+                UUID.randomUUID(),
                 "상품명입니다 상품명입니다",
                 90000,
                 10,
@@ -178,7 +179,7 @@ class ArtistDashboardControllerTest {
 
         assertAll(
                 () -> assertThat(data.getContent()).hasSize(1),
-                () -> assertThat(firstProduct.productId()).isNotNull(),
+                () -> assertThat(firstProduct.productUuid()).isNotNull(),
                 () -> assertThat(firstProduct.productName()).isNotBlank(),
                 () -> assertThat(firstProduct.price()).isPositive(),
                 () -> assertThat(firstProduct.discountRate()).isNotNegative(),

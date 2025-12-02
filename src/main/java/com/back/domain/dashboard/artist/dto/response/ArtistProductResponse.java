@@ -2,6 +2,8 @@ package com.back.domain.dashboard.artist.dto.response;
 
 import com.back.global.util.PageResponse;
 
+import java.util.UUID;
+
 /**
  * 작가 상품 관련 응답 DTO
  *
@@ -29,8 +31,8 @@ public class ArtistProductResponse {
      * 상품 정보
      */
     public record Product(
-            /** 상품 ID */
-            Long productId,
+            /** 상품 UUID */
+            UUID productUuid,
             /** 상품명 */
             String productName,
             /** 가격 */
