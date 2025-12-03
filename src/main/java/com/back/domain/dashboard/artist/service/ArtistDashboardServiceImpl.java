@@ -426,7 +426,7 @@ public class ArtistDashboardServiceImpl implements ArtistDashboardService {
      */
     private ArtistProductResponse.Product convertToProductDto(Product product) {
         return new ArtistProductResponse.Product(
-                product.getId(),
+                product.getProductUuid(),
                 product.getName(),
                 product.getPrice(),
                 product.getDiscountRate(),
