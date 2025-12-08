@@ -97,10 +97,10 @@ public record ProductDetailResponse(
         @Schema(description = "태그 ID 목록", example = "[1,2,3]")
         List<TagResponse> tags,
 
-        @Schema(description = "판매 시작일", example = "2025-10-01")
+        @Schema(description = "판매 시작일", example = "2025-10-01T10:00:00")
         LocalDateTime sellingStartDate,
 
-        @Schema(description = "판매 종료일", example = "2025-12-01")
+        @Schema(description = "판매 종료일", example = "2025-12-01T10:00:00")
         LocalDateTime sellingEndDate
 ) {
     @Schema(name = "OptionResponse", description = "상품 옵션")

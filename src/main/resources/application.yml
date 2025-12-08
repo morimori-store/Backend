@@ -36,6 +36,10 @@ spring:
         use_sql_comments: true
     # osiv 끄기
     open-in-view: false
+  decorator:
+    datasource:
+      p6spy:
+        enable-logging: true
   task:
     scheduling:
       pool:

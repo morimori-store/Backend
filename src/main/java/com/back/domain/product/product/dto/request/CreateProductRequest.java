@@ -81,10 +81,10 @@ public record CreateProductRequest(
         @NotNull(message = "재입고 여부는 필수입니다.")
         Boolean isRestock,// 재입고 여부
 
-        @Schema(description = "판매 시작일 (null 가능)", example = "2025-10-01")
+        @Schema(description = "판매 시작일 (null 가능)", example = "2025-10-01T10:00:00")
         LocalDateTime sellingStartDate, // 판매 시작일
 
-        @Schema(description = "판매 종료일 (null 가능)", example = "2025-12-01")
+        @Schema(description = "판매 종료일 (null 가능)", example = "2025-12-01T10:00:00")
         LocalDateTime sellingEndDate, // 판매 종료일
 
         @Schema(description = "태그 ID 목록", example = "[1,2,3]")

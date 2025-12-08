@@ -2,6 +2,7 @@ package com.back.global.s3;
 
 import com.back.global.exception.ServiceException;
 import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
@@ -12,9 +13,6 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -108,12 +106,16 @@ public class S3Service {
             results.add(new UploadResultResponse(url, type, s3Key, originalFilename));
 
             if (category == FileCategory.IMAGE && type == FileType.MAIN) {
-                byte[] thumbBytes = resizeImageSafe(file.getBytes(), 300, 400, extension);
+                // 원본 비율 유지하면서 최대 300px로 제한
+                byte[] thumbBytes = resizeImageSafe(file.getBytes(), 400, extension);
+
                 // 썸네일 S3 Key 생성
                 String thumbKey = folder + "/thumbnail-" + UUID.randomUUID() + "." + extension;
+
                 //S3에 썸네일 이미지 업로드
                 putS3Object(thumbBytes, thumbKey, contentType);
                 String thumbnailUrl = s3Client.utilities().getUrl(b -> b.bucket(bucketName).key(thumbKey)).toString();
+
                 results.add(new UploadResultResponse(thumbnailUrl, FileType.THUMBNAIL, thumbKey, "thumb_" + originalFilename));
             }
 
@@ -142,25 +144,23 @@ public class S3Service {
     }
 
     /**
-     * 썸네일 이미지 리사이징 담당
+     * 썸네일 이미지 리사이징 담당 (Thumbnailator 라이브러리 사용)
      */
-    private byte[] resizeImageSafe(byte[] originalImageBytes, int width, int height, String extension) {
-        try {
-            BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(originalImageBytes));
-            if (originalImage == null) throw new IOException("이미지 형식 오류");
+    private byte[] resizeImageSafe(byte[] originalImageBytes, int maxSize, String extension) {
+        try (ByteArrayInputStream bis = new ByteArrayInputStream(originalImageBytes);
+             ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
 
-            BufferedImage resized = new BufferedImage(width, height,
-                    originalImage.getType() == 0 ? BufferedImage.TYPE_INT_ARGB : originalImage.getType());
-            Graphics2D g = resized.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(originalImage, 0, 0, width, height, null);
-            g.dispose();
+            Thumbnails.of(bis)
+                    .size(maxSize, maxSize) // 최대 크기 제한 (원본 비율 유지하면서)
+                    .outputFormat(extension) // 파일 형식 유지
+                    .outputQuality(0.9)
+                    .toOutputStream(bos);
 
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ImageIO.write(resized, extension, bos);
             return bos.toByteArray();
+
         } catch (IOException e) {
-            throw new ServiceException("500", "썸네일 이미지 생성 실패");
+            log.error("썸네일 이미지 생성 실패 (Thumbnailator)", e);
+            throw new ServiceException("500", "썸네일 이미지 생성에 실패했습니다.");
         }
     }
 

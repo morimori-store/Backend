@@ -34,6 +34,7 @@ dependencies {
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     runtimeOnly("com.h2database:h2")
+    implementation("com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.10.0")
     // PostgreSQL 드라이버
     runtimeOnly("org.postgresql:postgresql")
     annotationProcessor("org.projectlombok:lombok")
@@ -75,6 +76,8 @@ dependencies {
 
     // 이메일 발송
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    // WebP 이미지 형식 지원
+    implementation("org.sejda.imageio:webp-imageio:0.1.6")
 }
 
 tasks.withType<Test> {
