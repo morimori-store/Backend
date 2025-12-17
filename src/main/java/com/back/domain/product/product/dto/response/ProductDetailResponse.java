@@ -1,5 +1,6 @@
 package com.back.domain.product.product.dto.response;
 
+import com.back.domain.product.category.entity.Category;
 import com.back.domain.product.product.entity.AdditionalProduct;
 import com.back.domain.product.product.entity.Option;
 import com.back.domain.product.product.entity.ProductImage;
@@ -101,7 +102,10 @@ public record ProductDetailResponse(
         LocalDateTime sellingStartDate,
 
         @Schema(description = "판매 종료일", example = "2025-12-01T10:00:00")
-        LocalDateTime sellingEndDate
+        LocalDateTime sellingEndDate,
+
+        @Schema(description = "카테고리 ID", example = "1")
+        Long categoryId
 ) {
     @Schema(name = "OptionResponse", description = "상품 옵션")
     public record OptionResponse(
