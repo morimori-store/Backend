@@ -478,6 +478,7 @@ public class ProductService {
                         businessInfo.businessAddress(),
                         businessInfo.telecomSalesNumber()
                 );
+
         return new ProductDetailResponse(
                 product.getProductUuid(),
                 product.getUser().getName(),
@@ -507,7 +508,8 @@ public class ProductService {
                 product.isRestock(),
                 mapTags(product.getProductTags()),
                 product.getSellingStartDate(),
-                product.getSellingEndDate()
+                product.getSellingEndDate(),
+                product.getCategory().getId()
         );
     }
 

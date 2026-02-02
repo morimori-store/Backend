@@ -476,7 +476,8 @@ public class ProductController {
                                                       {"id": 1, "name": "벚꽃"},
                                                       {"id": 2, "name": "키링"},
                                                       {"id": 3, "name": "한정판"}
-                                                    ]
+                                                    ],
+                                                    "categoryId": 1
                                                   }
                                                 }
                                                 """
